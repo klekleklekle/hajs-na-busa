@@ -339,7 +339,7 @@
     <div class="row"><span class="k">SHIFT</span><span><b>Nitro na fajkach</b> (jak masz fajki).</span></div>
     <div class="row"><span class="k">SPACJA</span><span>Ręczny - wpadasz w poślizg.</span></div>
     <div class="row"><span class="k">H</span><span>Klakson. Na Draba.</span></div>
-    <div class="row"><span class="k">L 🐙</span><span><b>Przyssawki Priusa</b> włącz / wyłącz (domyślnie włączone). Przy słabej grawitacji (Mars, Pluton, Księżyc…) dociągają opony do gruntu, żeby auto nie fruwało. Na Ziemi bez efektu.</span></div>
+    <div class="row"><span class="k">L 🐙</span><span><b>Przyssawki Priusa</b> włącz / wyłącz — też przycisk 🐙 w prawym górnym rogu (domyślnie wyłączone). Auto jest prawie przyklejone do nawierzchni; najmocniej działa przy słabej grawitacji (Mars, Pluton, Księżyc…).</span></div>
     <div class="row"><span class="k">R / X</span><span><b>Radio jak w GTA.</b> R = następna stacja, Shift+R = poprzednia, X = następny numer. Stacje lecą dalej jak zejdziesz. W cyklu jest RADIO OFF.</span></div>
     <div class="row"><span class="k">F / 🚶</span><span><b>Wysiądź jako Seba</b> (zatrzymaj się). Chodzisz na nogach. F jeszcze raz = z powrotem do auta.</span></div>
     <div class="row"><span class="k">U / 🚌</span><span><b>Zmień pojazd</b> (od 9000 zł): przełączaj się między <b>Priusem</b> a <b>3-osiowym autokarem PressCar</b> (lub kliknij ikonę 🚌 w rogu ekranu).</span></div>
@@ -423,6 +423,7 @@
   <div class="tp-list" id="tpList"></div>
 </div>
 <div id="muteBtn" class="sysbtn">🔊</div>
+<div id="przysBtn" class="sysbtn" style="top:calc(env(safe-area-inset-top,0) + 110px);right:8px;" title="Przyssawki Priusa (L)">🐙</div>
 <div id="pauseBtn" class="sysbtn">⏸</div>
 <div id="flyBtn" class="sysbtn" style="top:calc(env(safe-area-inset-top,0) + 60px);right:108px;">🚀</div>
 <div id="footBtn" class="sysbtn" style="top:calc(env(safe-area-inset-top,0) + 60px);right:158px;">🚶</div>
@@ -23819,7 +23820,7 @@ PG:{t:"KAWA Z HIGHLANDS",e:"☕",d:0.0,n:26,c:0x3e2723,s:"Aromatyczna kawa Arabi
       return d > 0 ? [dIn, dOut] : [-dOut, -dIn];
     }
 
-    var G_ZIEMIA = 9.81, PRZYS_ZASIEG = 0.25, PRZYS_TRZYM = 2.0, PRZYS_TLUM = 12;   // przyssawki: docelowy nacisk (ziemski), zasieg nad gruntem [m], max opor odrywania (x brakujace g), tlumienie odrywania [1/s]
+    var G_ZIEMIA = 9.81, PRZYS_ZASIEG = 0.8, PRZYS_TRZYM = 4.0, PRZYS_TLUM = 30, PRZYS_EXTRA = 0.5;   // przyssawki: docelowy nacisk (ziemski), zasieg nad gruntem [m], max opor odrywania (x brakujace g), tlumienie odrywania [1/s]
     function podkrok(S, h, wej, blisko, rho, lam, auta){
       var D = S.D, T = D.kolo.opona;
       var up = qrot(S.q, V(0,1,0)), fwd = qrot(S.q, V(0,0,1)), lft = qrot(S.q, V(1,0,0));
@@ -23898,16 +23899,18 @@ PG:{t:"KAWA Z HIGHLANDS",e:"☕",d:0.0,n:26,c:0x3e2723,s:"Aromatyczna kawa Arabi
           Fz = Math.max(0, T.kt*pen + T.ct*dpen);
         }
         K.kontakt = Fz > 0; K.Fz = Fz;
-        // ---- PRZYSSAWKI (lekkie): gdy grawitacja ciala jest slabsza od ziemskiej, bieznik przysysa sie do
+        // ---- PRZYSSAWKI (przycisk 🐙 / klawisz L, domyslnie wylaczone): docisk uzupelnia nacisk do ziemskiego i dokłada
+        // pol g na kazdym ciele; opor odrywania do 4 g ziemskich na zasiegu 0,8 m — auto jest prawie przyklejone.
+        // (opis wersji lekkiej:) gdy grawitacja ciala jest slabsza od ziemskiej, bieznik przysysa sie do
         // nawierzchni i dociaga kolo wzdluz normalnej gruntu sila, ktora uzupelnia nacisk do ziemskiego
         // (1/4 masy x brakujace g na kolo). Dziala w styku i do PRZYS_ZASIEG nad gruntem (liniowo slabnie),
         // wiec auto nie podskakuje na garbach i ma przyczepnosc pod gore, a ze skoczni normalnie odlatuje.
-        var gBrak = (S.przyssawki === false || (typeof PRZYSSAWKI_ON !== "undefined" && !PRZYSSAWKI_ON)) ? 0 : Math.max(0, G_ZIEMIA - S.grawitacja);   // klawisz L (adapter) wylacza
+        var gBrak = (S.przyssawki === false || (typeof PRZYSSAWKI_ON !== "undefined" && !PRZYSSAWKI_ON)) ? 0 : Math.max(0, G_ZIEMIA - S.grawitacja) + PRZYS_EXTRA*G_ZIEMIA;   // klawisz L (adapter) wylacza
         K.przys = 0;
         if(gBrak > 0 && pen > -PRZYS_ZASIEG && n.y > 0.05){
           var wPrz = pen >= 0 ? 1 : 1 + pen/PRZYS_ZASIEG;
           var vOdr = Math.max(0, vdot(Vw, n));                  // predkosc odrywania kola od nawierzchni
-          var Fprz = 0.25*D.masa*(gBrak*wPrz + Math.min(PRZYS_TRZYM*gBrak, PRZYS_TLUM*vOdr)*wPrz);   // docisk + opor przy odrywaniu (ograniczony)
+          var Fprz = 0.25*D.masa*(gBrak*wPrz + Math.min(PRZYS_TRZYM*G_ZIEMIA, PRZYS_TLUM*vOdr)*wPrz);   // docisk + opor przy odrywaniu (ograniczony)
           var FP = vmul(n, -Fprz);
           vaddTo(F, FP); vaddTo(Tq, vcross(vsub(C, Pcg), FP));
           K.przys = Fprz;
@@ -25036,19 +25039,34 @@ PG:{t:"KAWA Z HIGHLANDS",e:"☕",d:0.0,n:26,c:0x3e2723,s:"Aromatyczna kawa Arabi
 
   // PRZYSSAWKI (fizyka/auto.js): komunikat, gdy bieznik pierwszy raz zassie sie na ciele o slabszej grawitacji
   function FizAuto_naPrzyssawki(S){
-    if(typeof toast === "function") toast("PRZYSSAWKI 🐙 WŁĄCZONE · g " + (S.grawitacja||0).toFixed(2) + " m/s² — opony trzymają się gruntu jak na Ziemi · L = wyłącz", "good");
+    if(typeof toast === "function") toast("PRZYSSAWKI 🐙 ZASSANE · g " + (S.grawitacja||0).toFixed(2) + " m/s² — Prius przyklejony do gruntu · 🐙 / L = wyłącz", "good");
     if(typeof say === "function") say("radek", "Przyssawki na bieżniku zassane. Przy tej grawitacji bez nich Prius by fruwał.", true);
   }
 
-  // PRZYSSAWKI: klawisz L wlacza / wylacza (domyslnie wlaczone; dzialaja tylko, gdy g jest slabsze od ziemskiego)
-  var PRZYSSAWKI_ON = true;
+  // PRZYSSAWKI: przycisk 🐙 i klawisz L wlaczaja / wylaczaja (domyslnie wylaczone; dzialaja na kazdym ciele, najmocniej przy slabej grawitacji)
+  var PRZYSSAWKI_ON = false;   // domyslnie wylaczone (przycisk 🐙 w prawym gornym rogu / klawisz L)
   function przyssawkiToggle(){
     PRZYSSAWKI_ON = !PRZYSSAWKI_ON;
     var g = (typeof FAUTO !== "undefined" && FAUTO && FAUTO.grawitacja) ? FAUTO.grawitacja : 9.81;
-    var uwaga = g >= 9.81 ? " (na Ziemi bez efektu — działają przy słabszej grawitacji)" : "";
+    var uwaga = g >= 9.81 ? " · auto przyklejone do drogi" : " · g " + g.toFixed(2) + " m/s² — auto przyklejone do gruntu";
+    S_przysBtn();
     if(typeof toast === "function") toast(PRZYSSAWKI_ON ? "PRZYSSAWKI 🐙 WŁĄCZONE" + uwaga : "PRZYSSAWKI 🐙 WYŁĄCZONE · auto znów fruwa przy małej grawitacji", PRZYSSAWKI_ON ? "good" : "hajs");
     try{ var el = document.getElementById("przysHud"); if(el) el.textContent = PRZYSSAWKI_ON ? "🐙 L" : "🐙 off"; }catch(e){}
   }
+  // przycisk w rzedzie przyciskow systemowych (prawy gorny rog, pod 🔊): widoczny razem z nimi, podswietlony gdy wlaczone
+  function S_przysBtn(){
+    var b = document.getElementById("przysBtn"); if(!b) return;
+    b.style.background = PRZYSSAWKI_ON ? "rgba(33,230,193,.55)" : "rgba(10,6,18,.6)";
+    b.style.borderColor = PRZYSSAWKI_ON ? "#21e6c1" : "rgba(255,255,255,.14)";
+    b.style.opacity = PRZYSSAWKI_ON ? "1" : "0.75";
+    b.title = PRZYSSAWKI_ON ? "Przyssawki Priusa: WŁĄCZONE (L)" : "Przyssawki Priusa: wyłączone (L)";
+  }
+  (function przysBtnInit(){
+    var b = document.getElementById("przysBtn"); if(!b){ setTimeout(przysBtnInit, 500); return; }
+    b.addEventListener("click", function(e){ e.preventDefault(); e.stopPropagation(); przyssawkiToggle(); });
+    S_przysBtn();
+    setInterval(function(){ var m = document.getElementById("muteBtn"); if(m) b.style.display = (m.style.display === "flex") ? "flex" : "none"; }, 300);
+  })();
 
   function updateCar(dt){
     // ==================== TOYOTA PRIUS NA STACJI ISS ====================
@@ -41718,6 +41736,7 @@ PG:{t:"KAWA Z HIGHLANDS",e:"☕",d:0.0,n:26,c:0x3e2723,s:"Aromatyczna kawa Arabi
     var C = moonPlanetCenter();
     var nx=px-C.x, ny=py-C.y, nz=pz-C.z;
     var nl=Math.hypot(nx,ny,nz)||1; nx/=nl; ny/=nl; nz/=nl;
+    sx = nx; sy = ny; sz = nz;   // PELNE SWIATLO KSIEZYCA: Slonce w zenicie nad graczem — bez ciemnej strony
     var day = nx*sx + ny*sy + nz*sz; // -1..1
     // 0 = ciemna strona (półmrok), 1 = pełny dzień
     var t = Math.max(0, Math.min(1, day * 0.5 + 0.5));
@@ -43063,7 +43082,8 @@ PG:{t:"KAWA Z HIGHLANDS",e:"☕",d:0.0,n:26,c:0x3e2723,s:"Aromatyczna kawa Arabi
           scene.add(_eal);
           window._earthViewAmb = _eal;
         }
-        window._earthViewLight.position.set(MOON_SUN_DIR.x*60000, MOON_SUN_DIR.y*60000, MOON_SUN_DIR.z*60000);   // to samo Slonce co na Ksiezycu (cel: srodek Ziemi)
+        (function(){ var c = camera.position, l = Math.hypot(c.x, c.y, c.z) || 1;   // pelne swiatlo: Ziemia oswietlona od strony kamery (cel: srodek Ziemi)
+          window._earthViewLight.position.set(c.x/l*60000, c.y/l*60000, c.z/l*60000); })();
         window._earthViewLight.visible = true;
         if(window._earthViewAmb) window._earthViewAmb.visible = true;
         renderer.autoClear = false;
@@ -48995,7 +49015,8 @@ var MARS_DATA = {
     var U = marsUniforms(), t = Date.now(), eph = marsEphem(t), Q = marsQ(), sunW;
     if(Q){
       MARS.sunWorld = uklSlonceKier(MARS.C);
-      var sl = MARS.sunWorld.clone().applyQuaternion(Q.qi); sunW = { x: sl.x, y: sl.y, z: sl.z };
+      var pS = uklPelneSwiatlo(MARS.C, MARS.on, Q); MARS.sunWorld = pS.w;
+      var sl = pS.f; sunW = { x: sl.x, y: sl.y, z: sl.z };
       var cr = new THREE.Vector3(camera.position.x - MARS.C.x, camera.position.y - MARS.C.y, camera.position.z - MARS.C.z);
       if(!MARS.on) cr.applyQuaternion(Q.qi);                                    // w kosmosie siatka jest obrocona: kamera w ukladzie Marsa
       U.uCamRel.value.copy(cr);
@@ -51654,7 +51675,7 @@ var MARS_DATA = {
   function jowLightTick(){
     var Q = uklQ("jow", uklCzasJow());                                              // tOff: przesuniecie czasu do testow (domyslnie 0)
     JOW.sunWorld = uklSlonceKier(JOW.C);                                            // kierunek na Slonce w swiecie
-    JOW.sunW = JOW.sunWorld.clone().applyQuaternion(Q.qi);                          // ten sam kierunek w ukladzie planety
+    var pS = uklPelneSwiatlo(JOW.C, JOW.on, Q); JOW.sunWorld = pS.w; JOW.sunW = pS.f;   // pelne swiatlo od strony kamery
     for(var i=0;i<JOW.mats.length;i++) JOW.mats[i].uniforms.uSun.value.copy(JOW.sunW);
     if(JOW.skyU) JOW.skyU.uSun.value.copy(JOW.sunW);
     return JOW.sunW;
@@ -51957,6 +51978,15 @@ var MARS_DATA = {
   function uklPredSwiat(Q, C, pl, vl){ var r = new THREE.Vector3(pl.x - C.x, pl.y - C.y, pl.z - C.z).applyQuaternion(Q.q), w = Q.os.clone().multiplyScalar(Q.om).cross(r);
     return new THREE.Vector3(vl.x, vl.y, vl.z).applyQuaternion(Q.q).add(w); }
   function uklSlonceKier(C){ return new THREE.Vector3(UKL.S.x - C.x, UKL.S.y - C.y, UKL.S.z - C.z).normalize(); }
+  // PELNE SWIATLO (2026-10-30): dopoki Slonce nie oswietla planet w mechanice gry, kazda jest oswietlona ze strony,
+  // z ktorej na nia patrzymy (pelna faza) — bez nocnej polkuli. Na powierzchni (on) scena = uklad planety, wiec swiatlo
+  // pada z zenitu nad kamera; w kosmosie siatka jest obrocona o Q.q, wiec kierunek do shadera idzie przez Q.qi.
+  function uklPelneSwiatlo(C, on, Q){
+    var d = new THREE.Vector3(camera.position.x - C.x, camera.position.y - C.y, camera.position.z - C.z);
+    if(d.lengthSq() < 1e-9) d.set(0, 1, 0); d.normalize();
+    if(on) return { w: d.clone().applyQuaternion(Q.q), f: d };
+    return { w: d, f: d.clone().applyQuaternion(Q.qi) };
+  }
   // grawitacja Slonca w ukladzie Ziemi (Ziemia sama spada ku Sloncu, wiec liczy sie roznica — sila plywowa;
   // przy Sloncu to juz pelne przyciaganie 274 m/s^2)
   function uklGrawitacja(x, y, z){
@@ -52867,7 +52897,7 @@ var MARS_DATA = {
   function wenLightTick(){
     var Q = uklQ("wen", Date.now());
     WEN.sunWorld = uklSlonceKier(WEN.C);
-    WEN.sunW = WEN.sunWorld.clone().applyQuaternion(Q.qi);
+    var pS = uklPelneSwiatlo(WEN.C, WEN.on, Q); WEN.sunWorld = pS.w; WEN.sunW = pS.f;   // pelne swiatlo od strony kamery
     wenUniforms().uSun.value.copy(WEN.sunW);
     return WEN.sunW;
   }
@@ -54167,7 +54197,7 @@ var MARS_DATA = {
   function stnLightTick(){
     var Q = uklQ("stn", uklCzasJow());                                              // tOff: przesuniecie czasu do testow (domyslnie 0)
     STN.sunWorld = stnSlonceKier();                                                 // kierunek na Slonce w swiecie (prawdziwy)
-    STN.sunW = STN.sunWorld.clone().applyQuaternion(Q.qi);                          // ten sam kierunek w ukladzie planety
+    var pS = uklPelneSwiatlo(STN.C, STN.on, Q); STN.sunWorld = pS.w; STN.sunW = pS.f;   // pelne swiatlo od strony kamery
     for(var i=0;i<STN.mats.length;i++) STN.mats[i].uniforms.uSun.value.copy(STN.sunW);
     if(STN.skyU) STN.skyU.uSun.value.copy(STN.sunW);
     return STN.sunW;
@@ -55658,7 +55688,7 @@ var MARS_DATA = {
   function pluLightTick(){
     var Q = uklQ("plu", Date.now());
     PLU.sunWorld = pluSlonceKier();
-    PLU.sunW = PLU.sunWorld.clone().applyQuaternion(Q.qi);
+    var pS = uklPelneSwiatlo(PLU.C, PLU.on, Q); PLU.sunWorld = pS.w; PLU.sunW = pS.f;   // pelne swiatlo od strony kamery
     pluUniforms().uSun.value.copy(PLU.sunW);
     return PLU.sunW;
   }
@@ -56970,7 +57000,7 @@ var MARS_DATA = {
   function urnLightTick(){
     var Q = uklQ("urn", uklCzasJow());                                              // tOff: przesuniecie czasu do testow (domyslnie 0)
     URN.sunWorld = urnSlonceKier();                                            // prawdziwy kierunek z efemerydy                                            // kierunek na Slonce w swiecie
-    URN.sunW = URN.sunWorld.clone().applyQuaternion(Q.qi);                          // ten sam kierunek w ukladzie planety
+    var pS = uklPelneSwiatlo(URN.C, URN.on, Q); URN.sunWorld = pS.w; URN.sunW = pS.f;   // pelne swiatlo od strony kamery
     for(var i=0;i<URN.mats.length;i++) URN.mats[i].uniforms.uSun.value.copy(URN.sunW);
     if(URN.skyU) URN.skyU.uSun.value.copy(URN.sunW);
     return URN.sunW;
@@ -58020,7 +58050,7 @@ var MARS_DATA = {
   function mrkLightTick(){
     var Q = uklQ("mrk", Date.now());
     MRK.sunWorld = mrkSlonceKier();
-    MRK.sunW = MRK.sunWorld.clone().applyQuaternion(Q.qi);
+    var pS = uklPelneSwiatlo(MRK.C, MRK.on, Q); MRK.sunWorld = pS.w; MRK.sunW = pS.f;   // pelne swiatlo od strony kamery
     mrkUniforms().uSun.value.copy(MRK.sunW);
     return MRK.sunW;
   }
